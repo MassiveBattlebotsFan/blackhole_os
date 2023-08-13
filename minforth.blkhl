@@ -1,0 +1,24 @@
+; Minimal FORTH for blackhole_os
+; How is this gonna work? No clue.
+; System word space 0x2000-0x2FFF
+; User word space 0x3000-0x7FFF
+; Line space 0x8000-0x9FFF
+set_l end_sys_words
+; Set up for beginning of user space
+set_h end_sys_words
+push_hl
+; Zero user space and line space
+set_dref 0x00
+inc
+set_a_h
+cmp 0xA0
+jnz -4
+
+; parser here
+
+; System words here
+; org operates by word, so 0x1000 == 0x2000 address
+; org 0x1000
+lbl test
+word 0x002B
+lbl end_sys_words

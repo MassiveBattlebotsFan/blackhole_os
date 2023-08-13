@@ -1,0 +1,36 @@
+NUL      EA 00 
+INC      01 00 
+DEC      02 00 
+SET_L	 03 arg
+SET_H	 04 arg
+SET_ACC	 A9 arg
+ADD      69 arg
+SUB      E9 arg
+XOR      49 arg
+OR       09 arg
+STO      85 ZPG_HL_LOC 
+RCL      A5 ZPG_HL_LOC 
+SET_DREF 0C arg
+PUSH_A	 48 00 
+POP_A    68 00 
+AND      29 arg
+JMP      10 00 
+JNZ      11 arg
+JEZ      12 arg
+CMP      13 arg
+OUT      14 00
+IN       15 00
+SET_L_A  16 00
+SET_H_A  17 00
+SET_A_L  18 00
+SET_A_H  19 00
+BAK      A8 00
+RES      98 00
+JREL     N/A
+PUSH_HL  1D 00
+POP_HL   1E 00
+EX_HL    1F 00
+RET      20 00
+
+$FFFE:
+$FFFF:

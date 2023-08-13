@@ -1,0 +1,159 @@
+; Minimal brainf for blackhole_os
+; Set up the tape @ 0x3000
+set_l 0x00
+set_h 0x30
+push_hl
+; Clear tape memory from 0x3000 to 0x7FFF
+set_dref 0x00
+inc
+set_a_h
+cmp 0x80
+jnz -4
+; Prepare alt reg
+pop_hl
+; set_h 0x58
+ex_hl
+lbl input_setup
+set_l 0x00
+set_h 0x05
+push_hl
+set_acc 63
+out
+; begin reading input
+lbl input_loop
+in
+cmp 35
+jnz 3
+pop_hl
+ret
+cmp 8
+jnz 2 
+dec
+cmp 0x0A
+jez 2
+cmp 0x0D
+jez 5
+sto
+inc
+out
+jrel input_loop
+; exit char
+set_dref 0xFF
+out
+set_acc 0x0A
+out
+; begin parse loop
+pop_hl
+lbl parse_loop
+rcl
+cmp 0xFF
+jez input_setup
+inc
+; check for loop/jump
+cmp 91
+jnz check_]
+ex_hl
+rcl
+; forward search for ]
+ex_hl
+cmp 0
+jnz parse_loop
+set_acc 1
+bak
+lbl fwdsch
+rcl
+inc
+cmp 91
+jnz 5
+res
+add 1
+bak
+jrel fwdsch
+cmp 93
+jnz fwdsch
+res
+sub 1
+bak
+jnz fwdsch
+jrel parse_loop
+lbl check_]
+cmp 93
+jnz norm_check
+ex_hl
+rcl
+; reverse search for [
+ex_hl
+cmp 0
+jez parse_loop
+set_acc 0
+bak
+lbl revsch
+dec
+rcl
+cmp 93
+jnz 5
+res
+add 1
+bak
+jrel revsch
+cmp 91
+jnz revsch
+res
+sub 1
+bak
+jnz revsch
+inc
+lbl halfway
+jrel parse_loop
+lbl norm_check
+ex_hl
+; check for chars
+; +
+cmp 43
+jnz 5
+rcl
+add 1
+sto
+jrel end_norm_check
+; ,
+cmp 44
+jnz 4
+in
+sto
+jrel end_norm_check
+; -
+cmp 45
+jnz 5
+rcl
+sub 1
+sto
+jrel end_norm_check
+; .
+cmp 46
+jnz 4
+rcl
+out
+jrel end_norm_check
+; <
+cmp 60
+jnz 7
+dec
+set_a_h
+cmp 0x2F
+jnz 2
+set_h 0x7F
+jrel end_norm_check
+; >
+cmp 62
+jnz 6
+inc
+set_a_h
+cmp 0x80
+jnz 2
+set_h 0x30
+; jump to beginning of parse loop
+lbl end_norm_check
+ex_hl
+jrel halfway
+; end program
+nul

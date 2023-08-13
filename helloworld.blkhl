@@ -1,0 +1,19 @@
+set_h 0x05
+set_l 0x00
+set_dref 0x48
+inc
+set_dref 0x65
+inc
+set_dref 0x6C
+inc
+set_dref 0x6C
+inc
+set_dref 0x6F
+inc
+set_dref 0x00
+set_l 0x00
+rcl
+out
+inc
+cmp 0x00
+jnz -4

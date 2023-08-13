@@ -1,0 +1,77 @@
+blackhole os:
+
+starts up, assembler called Event Horizon converts intermediate language to target code, and then spools up os
+
+$F053
+
+mapping for z80:
+
+NUL      00 00
+INC      23 00
+DEC      2B 00
+SET_L    2E arg
+SET_H    26 arg
+SET_ACC  3E arg
+ADD      C6 arg
+SUB      D6 arg
+XOR      EE arg
+OR       F6 arg
+STO      77 00
+RCL      7E 00
+SET_DREF 36 arg
+PUSH_A   F5 00
+POP_A    F1 00
+AND      E6 arg
+JMP      E9 00
+JNZ      20 arg
+JEZ      28 arg
+CMP      FE arg
+OUT      E7 00
+IN       DF 00
+SET_L_A  6F 00
+SET_H_A  67 00
+SET_A_L  7D 00
+SET_A_H  7C 00
+BAK      47 00
+RES      78 00
+JREL     18 arg
+PUSH_HL  E5 00
+POP_HL   E1 00
+EX_HL    EB 00
+RET      C9 00
+
+mapping for intermediate lang:
+
+NUL      00 00 
+INC      01 00 
+DEC      02 00 
+SET_L	 03 arg
+SET_H	 04 arg
+SET_ACC	 05 arg
+ADD      06 arg
+SUB      07 arg
+XOR      08 arg
+OR       09 arg
+STO      0A 00 
+RCL      0B 00 
+SET_DREF 0C arg
+PUSH_A	 0D 00 
+POP_A    0E 00 
+AND      0F arg
+JMP      10 00 
+JNZ      11 arg
+JEZ      12 arg
+CMP      13 arg
+OUT      14 00
+IN       15 00
+SET_L_A  16 00
+SET_H_A  17 00
+SET_A_L  18 00
+SET_A_H  19 00
+BAK      1A 00
+RES      1B 00
+JREL     1C arg
+PUSH_HL  1D 00
+POP_HL   1E 00
+EX_HL    1F 00
+RET      20 00
