@@ -1,13 +1,15 @@
 ; Minimal brainf for blackhole_os
-; Set up the tape @ 0x3000
+; program memory from 0x0500-0x3FFF
+; Set up the tape @ 0x4000-0xAFFF
+lbl restart
 set_l 0x00
-set_h 0x30
+set_h 0x40
 push_hl
-; Clear tape memory from 0x3000 to 0x7FFF
+; Clear memory from 0x4000 to 0xAFFF
 set_dref 0x00
 inc
 set_a_h
-cmp 0x80
+cmp 0xB0
 jnz -4
 ; Prepare alt reg
 pop_hl
@@ -22,6 +24,11 @@ out
 ; begin reading input
 lbl input_loop
 in
+; restart on ~
+cmp 0x7E
+jnz 3
+pop_hl
+jrel restart
 cmp 35
 jnz 3
 pop_hl
@@ -117,8 +124,13 @@ sto
 jrel end_norm_check
 ; ,
 cmp 44
-jnz 4
+jnz 9
 in
+cmp 0x0D
+jnz 3
+out
+sub 3
+out
 sto
 jrel end_norm_check
 ; -
@@ -130,8 +142,13 @@ sto
 jrel end_norm_check
 ; .
 cmp 46
-jnz 4
+jnz 9
 rcl
+cmp 0x0A
+jnz 4
+add 3
+out
+sub 3
 out
 jrel end_norm_check
 ; <
@@ -139,18 +156,18 @@ cmp 60
 jnz 7
 dec
 set_a_h
-cmp 0x2F
+cmp 0x3F
 jnz 2
-set_h 0x7F
+set_h 0xAF
 jrel end_norm_check
 ; >
 cmp 62
 jnz 6
 inc
 set_a_h
-cmp 0x80
+cmp 0xB0
 jnz 2
-set_h 0x30
+set_h 0x40
 ; jump to beginning of parse loop
 lbl end_norm_check
 ex_hl
