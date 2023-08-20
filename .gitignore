@@ -1,0 +1,10 @@
+build
+*.b
+*.o
+*.hex
+*.exe
+*.com
+*.blkhl
+!examples/*
+.vscode
+*~
