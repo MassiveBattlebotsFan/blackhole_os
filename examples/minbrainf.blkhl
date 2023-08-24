@@ -36,16 +36,30 @@ ret
 cmp 8
 jnz 2 
 dec
+cmp 0x09
+jez only_output
+cmp 0x20
+jez only_output
 cmp 0x0A
-jez 2
+jnz 2
+add 3
 cmp 0x0D
-jez 5
+jnz 4
+out
+sub 3
+jrel only_output
+; exit on !
+cmp 0x21
+jez exit_input_loop
 sto
 inc
+lbl only_output
 out
 jrel input_loop
 ; exit char
+lbl exit_input_loop
 set_dref 0xFF
+set_acc 0x0D
 out
 set_acc 0x0A
 out

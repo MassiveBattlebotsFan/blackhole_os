@@ -7,6 +7,7 @@
 #include <atomic>
 #include <thread>
 #include <fstream>
+#include <ncurses/ncurses.h>
 
 enum class OPERATORS{
     NUL = 0,
@@ -191,11 +192,11 @@ void Machine::step(){
         else this->zero = false;
         break;
     case OPERATORS::OUT:
-        std::cout.put(this->reg_acc);
+        if(this->reg_acc != 0x0D) printw("%c", this->reg_acc);
         break;
     case OPERATORS::IN:{
-        int input = 0;
-        for(;input == std::cin.eof(); input = std::cin.get());
+        int input = getch();
+        //for(;input == std::cin.eof(); input = std::cin.get());
         this->reg_acc = static_cast<unsigned char>(input);
         break;
     }
@@ -262,6 +263,14 @@ int main(int argc, char **argv){
     char tmp;
     while(!file.get(tmp).eof()) exec_data += tmp;
     file.close();
+    
+    initscr(); //start ncurses stuff
+    clear();
+    scrollok(stdscr, true);
+    noecho();
+    cbreak();
+    refresh();
+
     Machine machine;
     machine.setOrigin(0x0100);
     machine.reset();
@@ -270,5 +279,10 @@ int main(int argc, char **argv){
     machine.setDebug(argc > 2);
     machine.start();
     while(!machine.is_finished);
+    
+    getnstr(nullptr, INT32_MAX);
+    clear();
+    endwin();
+
     return 0;
 }
