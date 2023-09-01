@@ -7,7 +7,10 @@
 #include <atomic>
 #include <thread>
 #include <fstream>
+#include <chrono>
 #include <ncurses/ncurses.h>
+
+using namespace std::literals;
 
 enum class OPERATORS{
     NUL = 0,
@@ -192,7 +195,9 @@ void Machine::step(){
         else this->zero = false;
         break;
     case OPERATORS::OUT:
-        if(this->reg_acc != 0x0D) printw("%c", this->reg_acc);
+        if(this->reg_acc != 0x0D) addch(this->reg_acc);
+        refresh();
+        //std::this_thread::sleep_for(1ms);
         break;
     case OPERATORS::IN:{
         int input = getch();
@@ -246,7 +251,9 @@ void Machine::step(){
 void Machine::exec(){
     while(!this->stop_execution){
         while(this->run_exec){
+            auto t_time = std::chrono::steady_clock::now() + 1us;
             this->step();
+            while(std::chrono::steady_clock::now() < t_time);
         }
     }
 }
