@@ -10,8 +10,6 @@
 
 using namespace std::literals;
 
-#define DEBUG_MESSAGES
-
 enum class OPERATORS{
     NUL = 0,
     INC,
@@ -127,6 +125,20 @@ int main(int argc, char **argv){
             labels[arg] = current_addr;
             std::cout << "Label " << arg << std::format(" = {:04X}", current_addr) << std::endl;
             line.at(0) = ';';
+        }else if(cmd == "WORD"){
+            size_t temp_sep = arg.find(',');
+            unsigned int num_seps = 1;
+            while(temp_sep != std::string::npos){
+                temp_sep = arg.find(',', temp_sep+1);
+                num_seps++;
+            }
+            current_addr += num_seps;
+        }else if(cmd == "STR"){
+            size_t len = arg.size();
+            if(len % 2) len++;
+            else len += 2;
+            len /= 2;
+            current_addr += len;
         }else{
             current_addr++;
         }
@@ -171,7 +183,7 @@ int main(int argc, char **argv){
                     uint8_arg = arg_exists->second - current_addr;
                     if(abs(static_cast<int>(static_cast<char>(uint8_arg))) > 60) std::cerr << "Warn addr " << current_addr << ": Jump to label \'" << arg_exists->first << "\' distance " << abs(static_cast<int>(static_cast<char>(uint8_arg))) << " > 60\n";
                 }else if(cmd_exists->second == OPERATORS::SET_H){
-                    uint8_arg = static_cast<unsigned char>(((arg_exists->second*2) & 0xFF00) >> 8);
+                    uint8_arg = static_cast<unsigned char>(((arg_exists->second*2) & 0xFF00) >> 8) + 1;
                     #ifdef DEBUG_MESSAGES
                     std::cout << "Replacing " << arg_exists->first << std::format(" with {:02X}", static_cast<int16_t>(uint8_arg)) << std::endl;
                     #endif
@@ -209,6 +221,33 @@ int main(int argc, char **argv){
                 #endif
                 word_list.push_back(temp_arg_int);
             }while(arg_last_sep_loc != std::string::npos);
+            #ifdef DEBUG_MESSAGES
+            std::cout << std::format("Delimiter = 0xFF{:02X}\nEnd insert words\n", static_cast<uint16_t>(word_list.size())*2);
+            #endif
+            compiled_output.push_back(0xFF);
+            compiled_output.push_back(static_cast<uint16_t>(word_list.size())*2);
+            for(auto& i : word_list){
+                compiled_output.push_back(static_cast<unsigned char>((i & 0xFF00) >> 8));
+                compiled_output.push_back(static_cast<unsigned char>(i & 0x00FF));
+                current_addr++;
+            }
+        }else if(cmd == "STR"){
+            #ifdef DEBUG_MESSAGES
+            std::cout << "Inserting string bytes\n";
+            #endif
+            uint16_t temp = 0;
+            std::vector<uint16_t> word_list;
+            for(size_t i = 0; i < arg.size(); ++i){
+                if(i % 2){
+                    temp |= static_cast<uint16_t>(arg.at(i))&0x00FF;
+                    word_list.push_back(temp);
+                    temp = 0;
+                }else{
+                    temp = (static_cast<uint16_t>(arg.at(i)) << 8) & 0xFF00;
+                }
+            }
+            if(temp) word_list.push_back(temp); // just in case
+            else word_list.push_back(0x0000);
             #ifdef DEBUG_MESSAGES
             std::cout << std::format("Delimiter = 0xFF{:02X}\nEnd insert words\n", static_cast<uint16_t>(word_list.size())*2);
             #endif

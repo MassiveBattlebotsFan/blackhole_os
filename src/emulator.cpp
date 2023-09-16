@@ -101,7 +101,7 @@ void Machine::setMemory(std::string data){
     for(size_t i = 0; i < data.size() - 1; i += 2){
         unsigned char command = data.at(i);
         unsigned char arg = data.at(i+1);
-        if(!(command == 0xFF && arg != 0xFF)){
+        if(!(command == 0xFF && arg < 0xFF)){
             this->memory[this->address++] = command;
             this->memory[this->address++] = arg;
         }
