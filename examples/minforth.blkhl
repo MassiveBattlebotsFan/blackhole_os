@@ -124,7 +124,6 @@ jez setup_tokenize
 cmp 0x0
 jnz tokenize
 
-
 set_a_l
 cmp 0x1
 jez 17
@@ -187,3 +186,47 @@ str ?BREAK
 lbl debug_token
 str ?TOKEN 
 lbl token_space
+
+; system words
+; starts at 0x2000
+; 003B = '\0;'
+org 0x1000
+lbl system_words
+str : +
+pop_a
+cmp 0x0
+jez 9 
+bak
+pop_a
+add 1
+push_a
+res
+sub 1
+bak
+jnz -6
+jmp
+word 0x003B
+str : putc
+pop_a
+out
+jmp
+word 0x003B
+str : getc
+in
+push_a
+jmp
+word 0x003B
+str : -
+pop_a
+cmp 0x0
+jez 9 
+bak
+pop_a
+sub 1
+push_a
+res
+sub 1
+bak
+jnz -6
+jmp
+word 0x003B
