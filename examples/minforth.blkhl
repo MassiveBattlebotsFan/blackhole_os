@@ -1,27 +1,188 @@
 ; Minimal FORTH for blackhole_os
 ; How is this gonna work? No clue.
+; Status stuff @ 0x0FF0
 ; Strings @ 0x1000
 ; System word space 0x2000-0x3FFF
 ; User word space 0x4000-0xAFFF
-; Line space 0xB000-0xBFFF
-; Token parsing space 0xC000-0xC0FF
-; Compiled token space 0xC100-0xCFFF
+; Line space 0xB000-0xB7FF
+; Token parsing space 0xB800-0xBFFF
+; Compiled token space 0xC000-0xCFFF
+
+
+; Step 0: Zero out memory
+
+; Initialize HL to end of system words
+set_h end_system_words
+set_l end_system_words
+
+; Set a label for a loop to zero memory until H == 0xD0
+lbl step_0_zero_mem
+set_dref 0x0
+inc
+set_a_h
+cmp 0xD0
+jnz step_0_zero_mem
+
 
 ; Step 1: Read user input
 ; Store at 0xB000, break at CR (0x0D) char
 ; Null-terminate
+lbl step_1_read_input
+
+; Store line space addr into HL
+set_h 0xB0
+set_l 0x00
+
+; Label for input loop
+lbl step_1_read_input_loop
+in ; Read one byte from io
+cmp 0x0D ; Check if it's a newline (will break loop)
+jez step_1_read_input_loop_break ; Break the loop
+cmp 0x08 ; Check for backspace (they're special)
+jnz 3 ; If not, jump past the next code
+dec 
+rcl ; Decrement and read the previous char
+out
+sto
+inc ; Store whatever's in A (read char or prev char if backspace)
+; And increment
+jrel step_1_read_input_loop
+lbl step_1_read_input_loop_break ; Break loop here
+set_dref 0x0 ; Null terminate string by writing to whatever HL was pointing to
+
 
 ; Step 2: Parse input into tokens
 ; Split by space (0x20)
-; Write temp tokens into 0xC000
+; Write temp tokens into 0xB800
 ; Replace space with 0xFF
+lbl step_2_tokenize_input
+
+; Set alt HL to point to the beginning of temp token space
+set_h 0xB8
+set_l 0x00
+ex_hl
+
+; Set main HL to beginning of line space
+set_h 0xB0
+set_l 0x00
+
+; Begin main loop
+lbl step_2_tokenizer_loop
+rcl ; Read a character from line space
+inc 
+cmp 0x20 ; If it's a space we're done with this token
+jez step_2_token_parsed ; Jump to code to jump to token matcher with return set to this loop
+cmp 0x00 ; If it's a null we're done with the line
+jez step_2_line_parsed ; Jump to code to jump to token matcher with return set to step 4
+ex_hl ; Switch to temp space
+sto
+inc ; Store and increment
+ex_hl ; Back to line space
+jrel step_2_tokenizer_loop
+
+lbl step_2_token_parsed ; Jump here on end of token
+ex_hl ; Temp space
+set_dref 0xFF ; Denote end of token
+ex_hl ; Line space
+
+set_a_l
+bak ; Set backup register to L
+set_a_h ; Set main A to H
+
+set_h system_line_space_backup
+set_l system_line_space_backup
+sto ; Store H in system_line_space_backup
+inc
+res
+sto ; Store L in system_line_space_backup + 1 
+
+; Code to jump to step 3 here
+
+lbl step_2_token_parsed_return ; Return addr
+
+lbl step_2_line_parsed ; Jump here on end of line
+ex_hl ; Temp space
+set_dref 0xFF ; Denote end of token
+ex_hl ; Line space
+
+
 
 ; Step 3: Match tokens against system words
 ; Compare each character
 ; If both the word and token hit 0xFF and match along the way
-; Write the 2-byte index of the word to a byte in compiled space (0xC100)
+; Write the 2-byte index of the word to a byte in compiled space (0xC000)
 ; Then goto step 2
 ; If token doesn't match, goto step 3.5
+lbl step_3_match_tokens
+
+; Set alt HL to point to system words
+set_h system_words
+set_l system_words
+
+ex_hl ; Switch to main HL and set to point to temp space
+lbl step_3_match_tokens_reset_temp_space ; label for when we fail a match
+set_h 0xB8
+set_l 0x00
+
+; Search for next system word (denoted by a ':' 0x3A)
+ex_hl ; word space
+lbl step_3_find_next_word
+rcl
+inc
+cmp 0x3B ; First we're looking for the closing ';' (0x3B)
+jnz step_3_find_next_word
+inc
+rcl
+cmp 0x3A ; If we found the ';', the next char should be a ':'
+jez 6
+set_h 0x40 ; Otherwise, check user space
+set_l 0x00
+rcl
+cmp 0x3A
+jez 0
+; Throw an error here 
+ex_hl ; temp space
+
+; Begin main loop
+lbl step_3_match_tokens_loop
+ex_hl ; word space
+rcl
+inc
+bak ; Read char from word space into bak
+ex_hl ; temp space
+rcl ; Read char from temp space into acc
+inc
+
+; Compare them
+sub_bak
+push_a ; Push result to stack for later
+res ; Swap bak into acc
+cmp 0xFF ; If we're at the terminating char in word space, either we matched or it's the wrong token
+jnz 16 ; If we're not at terminating char, check for match
+
+pop_a ; We need those results now
+cmp 0x00 ; If they're both on 0xFF then we matched
+jez 13
+set_h system_symbol_search_idx ; Increment the search index
+set_l system_symbol_search_idx
+rcl
+add 1
+sto
+cmp 0x00
+jnz 5 
+inc
+rcl
+add 1
+sto
+jrel step_3_match_tokens_reset_temp_space ; Otherwise, next token
+; goto step 4 here
+
+pop_a
+cmp 0x00 ; If we matched chars
+jez step_3_match_tokens_loop ; repeat
+jrel -15 ; Otherwise, do the symbol search thing 
+
+
 
 ; Step 3.5: Convert token to number
 ; Convert each digit by subtracting 0x30
@@ -33,6 +194,15 @@
 ; Else if compiled space is closed (i.e. a word def with a matching : and ;, or is a standard line that's done)
 ; Run it by reading each byte, then jumping to the respective word, running that, and jumping back.
 ; Once done, jump to step 1
+
+; Reserved memory for backing up a couple values
+org 0x0FF0
+lbl system_compiler_mode
+word 0x0000
+lbl system_line_space_backup
+word 0x0000
+lbl system_symbol_search_idx
+word 0x0000
 
 ; system strings
 ; this gets doubled, starts at 0x1000
@@ -55,6 +225,7 @@ str ?CRIT
 ; FF3B = delimiter
 org 0x1000
 lbl system_words
+word 0xFF3B
 str : +
 pop_a
 cmp 0x0
@@ -93,3 +264,4 @@ bak
 jnz -6
 jmp
 word 0xFF3B
+lbl end_system_words

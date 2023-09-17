@@ -39,6 +39,8 @@ PUSH_HL  E5 00
 POP_HL   E1 00
 EX_HL    EB 00
 RET      C9 00
+ADD_BAK  80 00
+SUB_BAK  90 00
 
 mapping for intermediate lang:
 
@@ -75,3 +77,5 @@ PUSH_HL  1D 00
 POP_HL   1E 00
 EX_HL    1F 00
 RET      20 00
+ADD_BAK  21 00
+SUB_BAK  22 00

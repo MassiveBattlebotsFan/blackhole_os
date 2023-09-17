@@ -43,7 +43,9 @@ enum class OPERATORS{
     PUSH_HL,
     POP_HL,
     EX_HL,
-    RET
+    RET,
+    ADD_BAK,
+    SUB_BAK
 };
 
 const std::unordered_map<std::string, OPERATORS> OP_CONV{
@@ -80,7 +82,9 @@ const std::unordered_map<std::string, OPERATORS> OP_CONV{
     {"PUSH_HL"s,OPERATORS::PUSH_HL},
     {"POP_HL"s,OPERATORS::POP_HL},
     {"EX_HL"s,OPERATORS::EX_HL},
-    {"RET"s,OPERATORS::RET}
+    {"RET"s,OPERATORS::RET},
+    {"ADD_BAK"s,OPERATORS::ADD_BAK},
+    {"SUB_BAK"s,OPERATORS::SUB_BAK}
 };
 
 int main(int argc, char **argv){
@@ -114,6 +118,7 @@ int main(int argc, char **argv){
         //std::cout << "command: " << cmd << std::endl;
         if(pos != std::string::npos){
             arg = line.substr(pos+1);
+            arg = arg.substr(0, arg.find(';'));
         }else{
             arg = "0";
         }
@@ -156,6 +161,7 @@ int main(int argc, char **argv){
         #endif
         if(pos != std::string::npos){
             arg = line.substr(pos+1);
+            arg = arg.substr(0, arg.find(';'));
         }else{
             arg = "0";
         }
