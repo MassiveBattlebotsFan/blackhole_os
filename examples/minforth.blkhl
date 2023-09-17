@@ -2,263 +2,37 @@
 ; How is this gonna work? No clue.
 ; Strings @ 0x1000
 ; System word space 0x2000-0x3FFF
-; User word space 0x4000-0x9FFF
-; Line space 0xA000-0xDFFF
-set_l 0x00
-; Set up for beginning of user space
-set_h 0x40
-; Zero user space and line space
-lbl zero_memory
-set_dref 0x00
-inc
-set_a_h
-cmp 0xE0
-jnz zero_memory
+; User word space 0x4000-0xAFFF
+; Line space 0xB000-0xBFFF
+; Token parsing space 0xC000-0xC0FF
+; Compiled token space 0xC100-0xCFFF
 
-; ok, memory is initialized
-; step 1: read input
-; we'll set HL to the OK message
-set_h end_print
-set_l end_print
-push_hl
-set_h system_syntax_error
-set_l system_syntax_error
-push_hl
-set_acc 0x0D
-lbl main_loop
-; print whatever HL points to, null terminated
-jrel midway_print_hl
-lbl end_print
-set_h end_print
-set_l end_print
-push_hl
+; Step 1: Read user input
+; Store at 0xB000, break at CR (0x0D) char
+; Null-terminate
 
-; set to beginning of line space
-set_h 0xA0
-set_l 0x00
+; Step 2: Parse input into tokens
+; Split by space (0x20)
+; Write temp tokens into 0xC000
+; Replace space with 0xFF
 
-lbl input_loop
+; Step 3: Match tokens against system words
+; Compare each character
+; If both the word and token hit 0xFF and match along the way
+; Write the 2-byte index of the word to a byte in compiled space (0xC100)
+; Then goto step 2
+; If token doesn't match, goto step 3.5
 
-; read from input
-in
+; Step 3.5: Convert token to number
+; Convert each digit by subtracting 0x30
+; If digits are in range, add them up
+; If the token is a valid number, add 0xFF[NUMBER] to compiled space
 
-; if LF then act like it's CR
-cmp 0x0A
-jnz 2
-add 3
-
-; if CR then break
-cmp 0x0D
-jez end_input
-
-; if backspace
-cmp 0x08
-jnz 4
-; backspace key decrements to prev char
-dec
-rcl
-jrel only_output
-
-; store acc into (HL), increment HL
-sto
-inc
-
-lbl only_output
-; output acc, echo
-out
-jrel input_loop
-
-; end loop
-lbl end_input
-out
-sub 3
-out
-; write a null terminator
-set_dref 0x0
-
-; begin parser
-; set hl to A000 for user strings
-set_h 0xA0
-set_l 0x00
-lbl setup_tokenize
-ex_hl
-; load token temp space into alt hl
-set_h token_space
-set_l token_space
-ex_hl
-; we're splitting by space
-lbl tokenize
-rcl
-bak
-inc
-; write char to token space
-ex_hl
-sto
-inc
-; check for token sep
-cmp 0x20
-jnz end_print_token
-dec
-set_dref 0x0
-; if found, load the thingy with token dbg msg and token space address
-set_h compare_token
-set_l compare_token
-push_hl
-set_h debug_token
-set_l debug_token
-push_hl
-lbl midway_print_hl
-jrel midway_print_hl_2
-lbl end_print_token_pop
-lbl end_print_token
-ex_hl
-res
-cmp 0x20
-jez setup_tokenize
-cmp 0x0
-jnz tokenize
-
-set_h 0xA0
-set_l 0x00
-rcl
-inc
-cmp 0
-jnz -3
-set_a_l
-cmp 0x1
-jez 11
-set_h system_ok
-set_l system_ok
-push_hl
-set_h main_loop
-set_l main_loop
-push_hl
-set_h token_space
-set_l token_space
-push_hl
-jrel midway_print_hl_2
-
-pop_hl
-set_h shutdown_interpreter
-set_l shutdown_interpreter
-push_hl
-set_h system_break
-set_l system_break
-push_hl
-lbl midway_print_hl_2
-jrel midway_print_hl_3
-lbl shutdown_interpreter
-ret
-
-; compare token to system words
-lbl compare_token
-ex_hl
-push_hl
-push_a
-res
-push_a
-
-; set up the backup hl w/ sys word address
-; main hl w/ token space
-; words are denoted by :, space, TOKEN_NAME
-; ends with 003B
-set_h system_words
-set_l system_words
-lbl compare_token_loop
-ex_hl
-set_h token_space
-set_l token_space
-ex_hl
-
-; first look for colon char
-lbl compare_token_search_3A
-rcl
-inc
-cmp 0x3A
-; break if couldn't find it cuz that's an error
-jnz reset_stuff_for_end_comp_err
-
-; found it, begin checking token name
-lbl compare_token_name
-inc
-rcl
-out
-bak
-ex_hl
-rcl
-inc
-out
-push_a
-ex_hl
-; if we're at the end of the word name then end check loop
-cmp 0x0
-jnz 5
-res
-cmp 0x0
-jez reset_stuff_for_end_comp
-jrel compare_token_search_3B
-
-res
-sub 1
-bak
-pop_a
-sub 1
-push_a
-jnz -6
-res
-; if they're the same char, jump to the next cycle
-cmp 0x0
-jez compare_token_name
-
-lbl compare_token_search_3B
-rcl
-inc
-cmp 0x3B
-jnz compare_token_search_3B
-jrel compare_token_loop
-
-lbl reset_stuff_for_end_comp_err
-pop_a
-bak
-pop_a
-pop_hl
-ex_hl
-set_h end_print_token_pop
-set_l end_print_token_pop
-push_hl
-set_h system_crit_error
-set_l system_crit_error
-push_hl
-lbl midway_print_hl_3
-jrel print_hl
-
-lbl reset_stuff_for_end_comp
-pop_a
-bak
-pop_a
-pop_hl
-ex_hl
-;push_hl
-set_h end_print_token
-set_l end_print_token
-jmp
-
-; print function
-lbl print_hl
-pop_hl
-lbl print_hl_loop
-rcl
-out
-inc
-rcl
-cmp 0x00
-jnz print_hl_loop
-set_acc 0x0D
-out
-sub 3
-out
-pop_hl
-jmp
+; Step 4: Run compiled space
+; If in compiler mode then wait for run symbol
+; Else if compiled space is closed (i.e. a word def with a matching : and ;, or is a standard line that's done)
+; Run it by reading each byte, then jumping to the respective word, running that, and jumping back.
+; Once done, jump to step 1
 
 ; system strings
 ; this gets doubled, starts at 0x1000
@@ -275,11 +49,10 @@ lbl debug_token
 str ?TOKEN 
 lbl system_crit_error
 str ?CRIT
-lbl token_space
 
 ; system words
 ; starts at 0x2000
-; 003B = '\0;'
+; FF3B = delimiter
 org 0x1000
 lbl system_words
 str : +
@@ -295,17 +68,17 @@ sub 1
 bak
 jnz -6
 jmp
-word 0x003B
+word 0xFF3B
 str : putc
 pop_a
 out
 jmp
-word 0x003B
+word 0xFF3B
 str : getc
 in
 push_a
 jmp
-word 0x003B
+word 0xFF3B
 str : -
 pop_a
 cmp 0x0
@@ -319,4 +92,4 @@ sub 1
 bak
 jnz -6
 jmp
-word 0x003B
+word 0xFF3B
