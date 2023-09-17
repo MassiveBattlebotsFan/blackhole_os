@@ -28,7 +28,19 @@ jnz step_0_zero_mem
 ; Store at 0xB000, break at CR (0x0D) char
 ; Null-terminate
 lbl step_1_read_input
-
+; Print READY
+set_h system_ready
+set_l system_ready
+rcl
+inc
+cmp 0x0
+jez 3
+out
+jrel -5
+set_acc 0x0D
+out
+sub 3
+out
 ; Store line space addr into HL
 set_h 0xB0
 set_l 0x00
@@ -125,8 +137,8 @@ lbl step_2_line_parsed ; Jump here on end of line
 ex_hl ; Temp space
 set_dref 0x00 ; Denote end of token
 ex_hl ; Line space
-set_h step_1_read_input
-set_l step_1_read_input
+set_h step_4_run_comp
+set_l step_4_run_comp
 push_hl
 
 
@@ -241,11 +253,37 @@ set_acc 0x0D
 out
 sub 3
 out
+set_h system_compiled_space_ptr
+set_l system_compiled_space_ptr
+rcl
+bak
+add 2
+sto
+inc
+rcl
+set_h_a
+res
+set_l_a
+cmp 0xFE
+jnz 4 
+rcl
+add 1
+sto
+ex_hl
+set_h system_symbol_search_idx
+set_l system_symbol_search_idx
+rcl
+bak
+inc
+rcl
+ex_hl
+sto
+inc
+res
+sto
+ex_hl
 pop_hl
 jmp
-
-jez step_3_match_tokens_loop ; repeat
-jrel -30 ; Otherwise, do the symbol search thing (jumps to an above instr to jump to step_3_match_tokens_reset_temp_space)
 
 
 
@@ -259,6 +297,33 @@ jrel -30 ; Otherwise, do the symbol search thing (jumps to an above instr to jum
 ; Else if compiled space is closed (i.e. a word def with a matching : and ;, or is a standard line that's done)
 ; Run it by reading each byte, then jumping to the respective word, running that, and jumping back.
 ; Once done, jump to step 1
+lbl step_4_run_comp
+set_h system_compiled_space_ptr
+set_l system_compiled_space_ptr
+rcl
+bak
+set_dref 0x00
+inc
+rcl
+set_dref 0xC0
+set_h_a
+res
+set_l_a ; Recover compiled space ptr, set last section to 0xFFFF
+set_dref 0xFF
+inc
+set_dref 0xFF
+set_h 0xC0
+set_l 0x00 ; compiled space
+rcl
+inc
+cmp 0xFF
+jez 4
+add 0x21
+out
+jrel -6
+set_h step_1_read_input
+set_l step_1_read_input
+jmp
 
 ; Reserved memory for backing up a couple values
 org 0x0FF0
@@ -268,10 +333,14 @@ lbl system_line_space_backup
 word 0x0000
 lbl system_symbol_search_idx
 word 0x0000
+lbl system_compiled_space_ptr ; little-endian
+word 0x00C0
 
 ; system strings
 ; this gets doubled, starts at 0x1000
 org 0x800
+lbl system_ready
+str READY
 lbl system_ok
 str OK
 lbl system_invalid_symbol
