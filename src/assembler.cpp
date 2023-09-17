@@ -9,7 +9,7 @@
 #include <cstdint>
 
 using namespace std::literals;
-
+//#define DEBUG_MESSAGES
 enum class OPERATORS{
     NUL = 0,
     INC,

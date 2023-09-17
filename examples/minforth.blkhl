@@ -98,24 +98,18 @@ inc
 ; check for token sep
 cmp 0x20
 jnz end_print_token
+dec
 set_dref 0x0
 ; if found, load the thingy with token dbg msg and token space address
-set_h print_token_after_msg
-set_l print_token_after_msg
+set_h compare_token
+set_l compare_token
 push_hl
 set_h debug_token
 set_l debug_token
 push_hl
 lbl midway_print_hl
-jrel print_hl
-lbl print_token_after_msg
-set_h end_print_token
-set_l end_print_token
-push_hl
-set_h token_space
-set_l token_space
-push_hl
-jrel print_hl
+jrel midway_print_hl_2
+lbl end_print_token_pop
 lbl end_print_token
 ex_hl
 res
@@ -124,9 +118,15 @@ jez setup_tokenize
 cmp 0x0
 jnz tokenize
 
+set_h 0xA0
+set_l 0x00
+rcl
+inc
+cmp 0
+jnz -3
 set_a_l
 cmp 0x1
-jez 17
+jez 11
 set_h system_ok
 set_l system_ok
 push_hl
@@ -136,13 +136,7 @@ push_hl
 set_h token_space
 set_l token_space
 push_hl
-set_h print_hl
-set_l print_hl
-push_hl
-set_h debug_token
-set_l debug_token
-push_hl
-jrel print_hl
+jrel midway_print_hl_2
 
 pop_hl
 set_h shutdown_interpreter
@@ -151,9 +145,103 @@ push_hl
 set_h system_break
 set_l system_break
 push_hl
-jrel print_hl
+lbl midway_print_hl_2
+jrel midway_print_hl_3
 lbl shutdown_interpreter
 ret
+
+; compare token to system words
+lbl compare_token
+ex_hl
+push_hl
+push_a
+res
+push_a
+
+; set up the backup hl w/ sys word address
+; main hl w/ token space
+; words are denoted by :, space, TOKEN_NAME
+; ends with 003B
+set_h system_words
+set_l system_words
+lbl compare_token_loop
+ex_hl
+set_h token_space
+set_l token_space
+ex_hl
+
+; first look for colon char
+lbl compare_token_search_3A
+rcl
+inc
+cmp 0x3A
+; break if couldn't find it cuz that's an error
+jnz reset_stuff_for_end_comp_err
+
+; found it, begin checking token name
+lbl compare_token_name
+inc
+rcl
+out
+bak
+ex_hl
+rcl
+inc
+out
+push_a
+ex_hl
+; if we're at the end of the word name then end check loop
+cmp 0x0
+jnz 5
+res
+cmp 0x0
+jez reset_stuff_for_end_comp
+jrel compare_token_search_3B
+
+res
+sub 1
+bak
+pop_a
+sub 1
+push_a
+jnz -6
+res
+; if they're the same char, jump to the next cycle
+cmp 0x0
+jez compare_token_name
+
+lbl compare_token_search_3B
+rcl
+inc
+cmp 0x3B
+jnz compare_token_search_3B
+jrel compare_token_loop
+
+lbl reset_stuff_for_end_comp_err
+pop_a
+bak
+pop_a
+pop_hl
+ex_hl
+set_h end_print_token_pop
+set_l end_print_token_pop
+push_hl
+set_h system_crit_error
+set_l system_crit_error
+push_hl
+lbl midway_print_hl_3
+jrel print_hl
+
+lbl reset_stuff_for_end_comp
+pop_a
+bak
+pop_a
+pop_hl
+ex_hl
+;push_hl
+set_h end_print_token
+set_l end_print_token
+jmp
 
 ; print function
 lbl print_hl
@@ -185,6 +273,8 @@ lbl system_break
 str ?BREAK
 lbl debug_token
 str ?TOKEN 
+lbl system_crit_error
+str ?CRIT
 lbl token_space
 
 ; system words
