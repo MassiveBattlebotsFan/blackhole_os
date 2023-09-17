@@ -9,7 +9,7 @@
 #include <cstdint>
 
 using namespace std::literals;
-//#define DEBUG_MESSAGES
+
 enum class OPERATORS{
     NUL = 0,
     INC,
@@ -92,6 +92,7 @@ int main(int argc, char **argv){
         std::cerr << "Usage: " << argv[0] << " <source>\n";
         return 1;
     }
+    const bool DEBUG_MESSAGES = argc > 2;
     std::string input_filename = argv[1];
     std::ifstream source_file(input_filename /* source file arg */);
     if(!source_file.is_open()){
@@ -119,6 +120,7 @@ int main(int argc, char **argv){
         if(pos != std::string::npos){
             arg = line.substr(pos+1);
             arg = arg.substr(0, arg.find(';'));
+            arg.erase(std::remove_if(arg.begin(), arg.end(), ::isspace), arg.end());
         }else{
             arg = "0";
         }
@@ -156,12 +158,13 @@ int main(int argc, char **argv){
         std::string cmd = line.substr(0, pos);
         std::string arg;
         std::for_each(cmd.begin(), cmd.end(), [](char &c){ c = std::toupper(c); });
-        #ifdef DEBUG_MESSAGES
+        if(DEBUG_MESSAGES){
         std::cout << "command: " << cmd << std::endl;
-        #endif
+        }
         if(pos != std::string::npos){
             arg = line.substr(pos+1);
             arg = arg.substr(0, arg.find(';'));
+            arg.erase(std::remove_if(arg.begin(), arg.end(), ::isspace), arg.end());
         }else{
             arg = "0";
         }
@@ -183,21 +186,21 @@ int main(int argc, char **argv){
             unsigned char uint8_arg;
             if(auto arg_exists = labels.find(arg); arg_exists != labels.end()){
                 if(cmd_exists->second == OPERATORS::JNZ || cmd_exists->second == OPERATORS::JEZ || cmd_exists->second == OPERATORS::JREL){
-                    #ifdef DEBUG_MESSAGES
-                    std::cout << "Replacing " << arg_exists->first << " with " << static_cast<int16_t>(static_cast<char>(arg_exists->second - current_addr)) << std::endl;
-                    #endif
+                    if(DEBUG_MESSAGES){
+                        std::cout << "Replacing " << arg_exists->first << " with " << static_cast<int16_t>(static_cast<char>(arg_exists->second - current_addr)) << std::endl;
+                    }
                     uint8_arg = arg_exists->second - current_addr;
                     if(abs(static_cast<int>(static_cast<char>(uint8_arg))) > 60) std::cerr << "Warn addr " << current_addr << ": Jump to label \'" << arg_exists->first << "\' distance " << abs(static_cast<int>(static_cast<char>(uint8_arg))) << " > 60\n";
                 }else if(cmd_exists->second == OPERATORS::SET_H){
                     uint8_arg = static_cast<unsigned char>(((arg_exists->second*2) & 0xFF00) >> 8) + 1;
-                    #ifdef DEBUG_MESSAGES
-                    std::cout << "Replacing " << arg_exists->first << std::format(" with {:02X}", static_cast<int16_t>(uint8_arg)) << std::endl;
-                    #endif
+                    if(DEBUG_MESSAGES){
+                        std::cout << "Replacing " << arg_exists->first << std::format(" with {:02X}", static_cast<int16_t>(uint8_arg)) << std::endl;
+                    }
                 }else{
                     uint8_arg = static_cast<unsigned char>((arg_exists->second*2) & 0x00FF);
-                    #ifdef DEBUG_MESSAGES
-                    std::cout << "Replacing " << arg_exists->first << std::format(" with {:02X}", static_cast<int16_t>(uint8_arg)) << std::endl;
-                    #endif
+                    if(DEBUG_MESSAGES){
+                        std::cout << "Replacing " << arg_exists->first << std::format(" with {:02X}", static_cast<int16_t>(uint8_arg)) << std::endl;
+                    }
                 }
             }else{
                 uint8_arg = static_cast<unsigned char>(std::strtol(arg.c_str(), nullptr, 0));
@@ -210,9 +213,9 @@ int main(int argc, char **argv){
             compiled_output.push_back(uint8_arg);
             current_addr++;
         }else if(cmd == "WORD"){
-            #ifdef DEBUG_MESSAGES
-            std::cout << "Inserting words\n";
-            #endif
+            if(DEBUG_MESSAGES){
+                std::cout << "Inserting words\n";
+            }
             size_t arg_last_sep_loc = 0;
             size_t arg_next_sep_loc = arg.find(',');
             std::string temp_arg;
@@ -222,14 +225,14 @@ int main(int argc, char **argv){
                 arg_last_sep_loc = arg_next_sep_loc;
                 arg_next_sep_loc = arg.find(',', arg_last_sep_loc+1);
                 uint16_t temp_arg_int = static_cast<uint16_t>(std::strtol(temp_arg.c_str(), nullptr, 0));
-                #ifdef DEBUG_MESSAGES
-                std::cout << std::format("{:04X}", temp_arg_int) << std::endl;
-                #endif
+                if(DEBUG_MESSAGES){
+                    std::cout << std::format("{:04X}", temp_arg_int) << std::endl;
+                }
                 word_list.push_back(temp_arg_int);
             }while(arg_last_sep_loc != std::string::npos);
-            #ifdef DEBUG_MESSAGES
-            std::cout << std::format("Delimiter = 0xFF{:02X}\nEnd insert words\n", static_cast<uint16_t>(word_list.size())*2);
-            #endif
+            if(DEBUG_MESSAGES){
+                std::cout << std::format("Delimiter = 0xFF{:02X}\nEnd insert words\n", static_cast<uint16_t>(word_list.size())*2);
+            }
             compiled_output.push_back(0xFF);
             compiled_output.push_back(static_cast<uint16_t>(word_list.size())*2);
             for(auto& i : word_list){
@@ -238,9 +241,9 @@ int main(int argc, char **argv){
                 current_addr++;
             }
         }else if(cmd == "STR"){
-            #ifdef DEBUG_MESSAGES
-            std::cout << "Inserting string bytes\n";
-            #endif
+            if(DEBUG_MESSAGES){
+                std::cout << "Inserting string bytes\n";
+            }
             uint16_t temp = 0;
             std::vector<uint16_t> word_list;
             for(size_t i = 0; i < arg.size(); ++i){
@@ -254,9 +257,9 @@ int main(int argc, char **argv){
             }
             if(temp) word_list.push_back(temp); // just in case
             else word_list.push_back(0x0000);
-            #ifdef DEBUG_MESSAGES
-            std::cout << std::format("Delimiter = 0xFF{:02X}\nEnd insert words\n", static_cast<uint16_t>(word_list.size())*2);
-            #endif
+            if(DEBUG_MESSAGES){
+                std::cout << std::format("Delimiter = 0xFF{:02X}\nEnd insert words\n", static_cast<uint16_t>(word_list.size())*2);
+            }
             compiled_output.push_back(0xFF);
             compiled_output.push_back(static_cast<uint16_t>(word_list.size())*2);
             for(auto& i : word_list){
@@ -270,9 +273,9 @@ int main(int argc, char **argv){
     }
     compiled_output.push_back(0xFF);
     compiled_output.push_back(0xFF);
-    #ifdef DEBUG_MESSAGES
+    if(DEBUG_MESSAGES){
     std::cout << "Compiled bytestring: " << compiled_output << std::endl;
-    #endif
+    }
     
     std::ofstream compiled_file(input_filename.substr(0,input_filename.find('.'))+".o", std::ios::trunc | std::ios::binary);
     if(!compiled_file.is_open()){

@@ -246,9 +246,13 @@ void Machine::step(){
         break;
     case OPERATORS::ADD_BAK:
         this->reg_acc += this->reg_bak;
+        if(this->reg_acc == 0) this->zero = true;
+        else this->zero = false;
         break;
     case OPERATORS::SUB_BAK:
         this->reg_acc -= this->reg_bak;
+        if(this->reg_acc == 0) this->zero = true;
+        else this->zero = false;
         break;
     }
     if(this->debug){
