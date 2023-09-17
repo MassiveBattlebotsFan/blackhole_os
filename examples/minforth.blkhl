@@ -326,7 +326,7 @@ set_l step_1_read_input
 jmp
 
 ; Reserved memory for backing up a couple values
-org 0x0FF0
+org 0x07FB
 lbl system_compiler_mode
 word 0x0000
 lbl system_line_space_backup
