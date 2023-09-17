@@ -244,13 +244,13 @@ void Machine::step(){
     case OPERATORS::RET:
         this->stop();
         break;
-    }
     case OPERATORS::ADD_BAK:
         this->reg_acc += this->reg_bak;
         break;
     case OPERATORS::SUB_BAK:
         this->reg_acc -= this->reg_bak;
         break;
+    }
     if(this->debug){
         std::cerr << std::format("cmd={:02X},arg={:02X},acc={:02X},bak={:02X},hl={:04X},hl_bak={:04X},addr={:04X}\n", int_cmd, arg, this->reg_acc, this->reg_bak, this->reg_hl, this->reg_hl_bak, this->address);
     }
