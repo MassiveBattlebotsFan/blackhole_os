@@ -2,7 +2,8 @@ blackhole os:
 
 starts up, assembler called Event Horizon converts intermediate language to target code, and then spools up os
 
-$F053
+DE is tgt, HL is src
+$F052
 
 mapping for z80:
 
