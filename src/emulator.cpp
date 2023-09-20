@@ -64,7 +64,7 @@ protected:
     std::atomic_bool run_exec = false;
     std::atomic_bool stop_execution = false;
     std::thread *exec_thread = nullptr;
-    std::vector<uint16_t> stack;
+    std::vector<uint8_t> stack;
     void exec();
     void step();
 public:
@@ -128,6 +128,7 @@ void Machine::reset(){
 
 void Machine::step(){
     unsigned char int_cmd = this->memory.at(this->address++);
+    if(int_cmd == 0x00) return;
     unsigned char arg = this->memory.at(this->address++);
     OPERATORS command = (int_cmd == 0xFF && arg == 0xFF) ? OPERATORS::RET : static_cast<OPERATORS>(int_cmd);
     switch(command){
@@ -180,10 +181,10 @@ void Machine::step(){
         this->memory.at(this->reg_hl) = arg;
         break;
     case OPERATORS::PUSH_A:
-        this->stack.push_back(static_cast<uint16_t>(this->reg_acc));
+        this->stack.push_back(this->reg_acc);
         break;
     case OPERATORS::POP_A:
-        this->reg_acc = static_cast<unsigned char>(this->stack.back() & 0x00FF);
+        this->reg_acc = this->stack.back();
         this->stack.pop_back();
         break;
     case OPERATORS::AND:
@@ -207,12 +208,14 @@ void Machine::step(){
         else this->zero = false;
         break;
     case OPERATORS::OUT:
-        if(this->reg_acc != 0x0D) addch(this->reg_acc);
+        if(this->reg_acc == 0x08) delch();
+        else if(this->reg_acc != 0x0D) addch(this->reg_acc);
         refresh();
         //std::this_thread::sleep_for(1ms);
         break;
     case OPERATORS::IN:{
         int input = getch();
+        if(input == KEY_BACKSPACE) input = 0x08;
         //for(;input == std::cin.eof(); input = std::cin.get());
         this->reg_acc = static_cast<unsigned char>(input);
         break;
@@ -239,10 +242,13 @@ void Machine::step(){
         this->address += static_cast<signed char>(arg);
         break;
     case OPERATORS::PUSH_HL:
-        this->stack.push_back(this->reg_hl);
+        this->stack.push_back(static_cast<uint8_t>(this->reg_hl & 0x00FF));
+        this->stack.push_back(static_cast<uint8_t>((this->reg_hl & 0xFF00) >> 8));
         break;
     case OPERATORS::POP_HL:
-        this->reg_hl = this->stack.back();
+        this->reg_hl = this->stack.back() << 8;
+        this->stack.pop_back();
+        this->reg_hl |= this->stack.back();
         this->stack.pop_back();
         break;
     case OPERATORS::EX_HL:{

@@ -124,7 +124,6 @@ int main(int argc, char **argv){
         if(pos != std::string::npos){
             arg = line.substr(pos+1);
             arg = arg.substr(0, arg.find(';'));
-            arg.erase(std::remove_if(arg.begin(), arg.end(), ::isspace), arg.end());
         }else{
             arg = "0";
         }
@@ -133,6 +132,7 @@ int main(int argc, char **argv){
             if(new_addr > current_addr) current_addr = new_addr;
         }
         else if(cmd == "LBL"){
+            arg.erase(std::remove_if(arg.begin(), arg.end(), ::isspace), arg.end());
             labels[arg] = current_addr;
             std::cout << "Label " << arg << std::format(" = {:04X}", current_addr) << std::endl;
             line.at(0) = ';';
@@ -168,7 +168,6 @@ int main(int argc, char **argv){
         if(pos != std::string::npos){
             arg = line.substr(pos+1);
             arg = arg.substr(0, arg.find(';'));
-            arg.erase(std::remove_if(arg.begin(), arg.end(), ::isspace), arg.end());
         }else{
             arg = "0";
         }
@@ -188,6 +187,7 @@ int main(int argc, char **argv){
         if(current_addr == -1) current_addr = 0;
         if(auto cmd_exists = OP_CONV.find(cmd); cmd_exists != OP_CONV.end()){
             unsigned char uint8_arg;
+            arg.erase(std::remove_if(arg.begin(), arg.end(), ::isspace), arg.end());
             if(auto arg_exists = labels.find(arg); arg_exists != labels.end()){
                 if(cmd_exists->second == OPERATORS::JNZ || cmd_exists->second == OPERATORS::JEZ || cmd_exists->second == OPERATORS::JREL || cmd_exists->second == OPERATORS::JGZ || cmd_exists->second == OPERATORS::JLZ){
                     if(DEBUG_MESSAGES){

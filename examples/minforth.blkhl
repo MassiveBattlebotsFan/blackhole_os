@@ -53,13 +53,14 @@ jez 2
 cmp 0x0D ; Check if it's a newline (will break loop)
 jez step_1_read_input_loop_break ; Break the loop
 cmp 0x08 ; Check for backspace (they're special)
-jnz 3 ; If not, jump past the next code
+jnz 5 ; If not, jump past the next code
 dec 
 rcl ; Decrement and read the previous char
 out
-sto
-inc ; Store whatever's in A (read char or prev char if backspace)
-; And increment
+jrel step_1_read_input_loop
+out
+sto ; Store whatever's in A (read char or prev char if backspace)
+inc ; And increment
 jrel step_1_read_input_loop
 lbl step_1_read_input_loop_break ; Break loop here
 set_acc 0x0D
@@ -198,6 +199,7 @@ set_l step_3.5_conv_number;system_invalid_symbol
 ;pop_hl
 jmp
 inc ; increment to skip the space after the ':'
+inc
 ex_hl ; temp space
 ; Begin main loop
 lbl step_3_match_tokens_loop
@@ -261,15 +263,16 @@ bak
 add 2
 sto
 inc
+cmp 0x00
+jnz 5 
+rcl
+add 1
+sto
+sub 1
 rcl
 set_h_a
 res
 set_l_a
-cmp 0xFE
-jnz 4 
-rcl
-add 1
-sto
 ex_hl
 set_a_h
 bak
@@ -387,7 +390,7 @@ rcl
 set_h_a
 res
 set_l_a
-set_dref 0xFF
+set_dref 0x00
 inc
 pop_a
 sto
@@ -410,25 +413,74 @@ rcl
 set_dref 0xC0
 set_h_a
 res
-set_l_a ; Recover compiled space ptr, set last section to 0x0000
+set_l_a ; Recover compiled space ptr, set last section to 0xFFFF
 set_dref 0xFF
 inc
 set_dref 0xFF
-set_h 0xC0
-set_l 0x00 ; compiled space
+set_h system_run_ptr_bak
+set_l system_run_ptr_bak
+set_dref 0x00 ; compiled space
+inc
+set_dref 0xC0
+ex_hl
+set_h step_4_run_loop
+set_l step_4_run_loop
+lbl step_4_run_loop ; run loop
+ex_hl
+set_h system_run_ptr_bak
+set_l system_run_ptr_bak
 rcl
+bak
 inc
+rcl
+set_h_a
+res
+set_l_a
+lbl step_4_run_loop_no_recovery
+rcl
+bak
+inc
+rcl
 cmp 0xFF
-jez 3
-;add 0x21
-out
-jrel -5
+jnz 4
+res
+cmp 0xFF
+jez step_4_end_run_loop
+res
+cmp 0x0
+jnz 5
+rcl
+push_a
+inc
+jrel step_4_run_loop_no_recovery
+;out
+push_a
+rcl
+;out
+push_a
+inc
+set_a_h
+bak
+set_a_l
+set_h system_run_ptr_bak
+set_l system_run_ptr_bak
+sto
+inc
+res
+sto
+pop_a
+set_h_a
+pop_a
+set_l_a
+jmp
+
+lbl step_4_end_run_loop
 set_h step_1_read_input
 set_l step_1_read_input
 jmp
 
 ; Reserved memory for backing up a couple values
-org 0x07FB
+org 0x07F0
 lbl system_compiler_mode
 word 0x0000
 lbl system_line_space_backup
@@ -437,11 +489,13 @@ lbl system_symbol_search_idx
 word 0x0000
 lbl system_compiled_space_ptr ; little-endian
 word 0x00C0
-
+lbl system_run_ptr_bak
+word 0x0000
 ; system strings
 ; this gets doubled, starts at 0x1000
 org 0x800
 lbl system_ready
+word 0x0D0A
 str READY
 lbl system_ok
 str OK
@@ -464,16 +518,10 @@ lbl system_words
 word 0x003B
 str : +
 pop_a
-cmp 0x0
-jez 9 
 bak
 pop_a
-add 1
+add_bak
 push_a
-res
-sub 1
-bak
-jnz -6
 ex_hl
 jmp
 word 0x003B
@@ -491,16 +539,31 @@ jmp
 word 0x003B
 str : -
 pop_a
-cmp 0x0
-jez 9 
 bak
+pop_a
+sub_bak
+push_a
+ex_hl
+jmp
+word 0x003B
+str : dup
+pop_a
+push_a
+push_a
+ex_hl
+jmp
+word 0x003B
+str : 1+
+pop_a
+add 1
+push_a
+ex_hl
+jmp
+word 0x003B
+str : 1-
 pop_a
 sub 1
 push_a
-res
-sub 1
-bak
-jnz -6
 ex_hl
 jmp
 word 0x003B
