@@ -270,12 +270,9 @@ rcl
 add 1
 sto
 ex_hl
-set_h system_symbol_search_idx
-set_l system_symbol_search_idx
-rcl
+set_a_h
 bak
-inc
-rcl
+set_a_l
 ex_hl
 sto
 inc
@@ -317,10 +314,10 @@ set_l 0x00 ; compiled space
 rcl
 inc
 cmp 0xFF
-jez 4
-add 0x21
+jez 3
+;add 0x21
 out
-jrel -6
+jrel -5
 set_h step_1_read_input
 set_l step_1_read_input
 jmp
