@@ -180,21 +180,22 @@ set_h 0x40 ; Otherwise, check user space
 set_l 0x00
 rcl
 cmp 0x3A
-jez 15
-; Throw an error
-set_h system_invalid_symbol
-set_l system_invalid_symbol
-rcl
-inc
-cmp 0x00
-jez 3
-out
-jrel -5
-set_acc 0x0D
-out
-sub 3
-out
-pop_hl
+jez 4;15
+; Check to see if it's a number
+; Old: Throw an error
+set_h step_3.5_conv_number;system_invalid_symbol
+set_l step_3.5_conv_number;system_invalid_symbol
+;rcl
+;inc
+;cmp 0x00
+;jez 3
+;out
+;jrel -5
+;set_acc 0x0D
+;out
+;sub 3
+;out
+;pop_hl
 jmp
 inc ; increment to skip the space after the ':'
 ex_hl ; temp space
@@ -282,12 +283,116 @@ ex_hl
 pop_hl
 jmp
 
-
-
 ; Step 3.5: Convert token to number
 ; Convert each digit by subtracting 0x30
 ; If digits are in range, add them up
 ; If the token is a valid number, add 0xFF[NUMBER] to compiled space
+lbl step_3.5_conv_number
+pop_hl
+ex_hl
+set_h 0xB7
+set_l 0xFF
+set_dref 0xFF
+inc
+lbl step_3.5_conv_number_loop
+rcl
+cmp 0x0
+jez add_everything_together
+cmp 0x30
+jlz step_3.5_conv_error
+cmp 0x3A
+jgz step_3.5_conv_error
+sub 0x30
+sto
+inc
+jrel step_3.5_conv_number_loop
+lbl add_everything_together
+dec
+rcl
+bak
+cmp 0xFF
+jez store_conversion
+; 10s place
+dec
+rcl
+cmp 0xFF
+jez store_conversion
+cmp 0x0
+jez 8
+push_a
+res
+add 10
+bak
+pop_a
+sub 1
+jrel -8
+; 100s place
+dec
+rcl
+cmp 0xFF
+jez store_conversion
+cmp 0x0
+jez 8
+push_a
+res
+add 100
+bak
+pop_a
+sub 1
+jrel -8
+lbl step_3.5_conv_error
+set_h system_invalid_symbol
+set_l system_invalid_symbol
+rcl
+inc
+cmp 0x0
+jez 3
+out
+jrel -5
+set_acc 0x0D
+out
+sub 3
+out
+ex_hl
+jmp
+
+lbl store_conversion
+res
+push_a
+set_h system_ok
+set_l system_ok
+rcl
+inc
+cmp 0x00
+jez 3
+out
+jrel -5
+set_acc 0x0D
+out
+sub 3
+out
+set_h system_compiled_space_ptr
+set_l system_compiled_space_ptr
+rcl
+bak
+add 2
+sto
+inc
+cmp 0x0
+jnz 4 
+rcl
+add 1
+sto
+rcl
+set_h_a
+res
+set_l_a
+set_dref 0xFF
+inc
+pop_a
+sto
+ex_hl
+jmp
 
 ; Step 4: Run compiled space
 ; If in compiler mode then wait for run symbol
@@ -305,7 +410,7 @@ rcl
 set_dref 0xC0
 set_h_a
 res
-set_l_a ; Recover compiled space ptr, set last section to 0xFFFF
+set_l_a ; Recover compiled space ptr, set last section to 0x0000
 set_dref 0xFF
 inc
 set_dref 0xFF
@@ -369,16 +474,19 @@ res
 sub 1
 bak
 jnz -6
+ex_hl
 jmp
 word 0x003B
 str : putc
 pop_a
 out
+ex_hl
 jmp
 word 0x003B
 str : getc
 in
 push_a
+ex_hl
 jmp
 word 0x003B
 str : -
@@ -393,6 +501,7 @@ res
 sub 1
 bak
 jnz -6
+ex_hl
 jmp
 word 0x003B
 lbl end_system_words

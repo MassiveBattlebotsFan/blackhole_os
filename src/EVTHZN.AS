@@ -91,4 +91,4 @@ ret
 trans: DB 00, 23, 2Bh, 2E, 26, 3E, 0C6, 0D6
 DB 0EEh, 0F6h, 77, 7E, 36, 0F5, 0F1, 0E6, 0E9, 20, 28, 0FE, 0E7, 0DF
 DB 06Fh, 67, 07Dh, 7Ch, 47, 78, 18, 0E5h, 0E1h, 0EBh, 0C9h, 80
-DB 90, 00
+DB 90, 30, 38, 00

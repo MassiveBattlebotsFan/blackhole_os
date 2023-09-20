@@ -45,7 +45,9 @@ enum class OPERATORS{
     EX_HL,
     RET,
     ADD_BAK,
-    SUB_BAK
+    SUB_BAK,
+    JGZ,
+    JLZ
 };
 
 const std::unordered_map<std::string, OPERATORS> OP_CONV{
@@ -84,7 +86,9 @@ const std::unordered_map<std::string, OPERATORS> OP_CONV{
     {"EX_HL"s,OPERATORS::EX_HL},
     {"RET"s,OPERATORS::RET},
     {"ADD_BAK"s,OPERATORS::ADD_BAK},
-    {"SUB_BAK"s,OPERATORS::SUB_BAK}
+    {"SUB_BAK"s,OPERATORS::SUB_BAK},
+    {"JGZ"s,OPERATORS::JGZ},
+    {"JLZ"s,OPERATORS::JLZ}
 };
 
 int main(int argc, char **argv){
@@ -185,7 +189,7 @@ int main(int argc, char **argv){
         if(auto cmd_exists = OP_CONV.find(cmd); cmd_exists != OP_CONV.end()){
             unsigned char uint8_arg;
             if(auto arg_exists = labels.find(arg); arg_exists != labels.end()){
-                if(cmd_exists->second == OPERATORS::JNZ || cmd_exists->second == OPERATORS::JEZ || cmd_exists->second == OPERATORS::JREL){
+                if(cmd_exists->second == OPERATORS::JNZ || cmd_exists->second == OPERATORS::JEZ || cmd_exists->second == OPERATORS::JREL || cmd_exists->second == OPERATORS::JGZ || cmd_exists->second == OPERATORS::JLZ){
                     if(DEBUG_MESSAGES){
                         std::cout << "Replacing " << arg_exists->first << " with " << static_cast<int16_t>(static_cast<char>(arg_exists->second - current_addr)) << std::endl;
                     }
@@ -205,7 +209,7 @@ int main(int argc, char **argv){
             }else{
                 uint8_arg = static_cast<unsigned char>(std::strtol(arg.c_str(), nullptr, 0));
             }
-            if(cmd_exists->second == OPERATORS::JNZ || cmd_exists->second == OPERATORS::JEZ || cmd_exists->second == OPERATORS::JREL){
+            if(cmd_exists->second == OPERATORS::JNZ || cmd_exists->second == OPERATORS::JEZ || cmd_exists->second == OPERATORS::JREL || cmd_exists->second == OPERATORS::JGZ || cmd_exists->second == OPERATORS::JLZ){
                 uint8_arg -= 1;
                 uint8_arg *= 2;
             }            

@@ -47,13 +47,16 @@ enum class OPERATORS{
     EX_HL,
     RET,
     ADD_BAK,
-    SUB_BAK
+    SUB_BAK,
+    JGZ,
+    JLZ
 };
 
 class Machine{
 protected:
     std::atomic_bool debug = false;
     bool zero = false;
+    bool carry = false;
     uint16_t origin = 0x0;
     uint16_t address = 0x0, reg_hl = 0x0, reg_hl_bak = 0x0;
     uint8_t reg_acc = 0x0, reg_bak = 0x0;
@@ -114,6 +117,7 @@ void Machine::reset(){
     this->run_exec = false;
     this->is_finished = false;
     this->zero = false;
+    this->carry = false;
     this->address = this->origin;
     this->reg_hl = 0x0;
     this->reg_hl_bak = 0x0;
@@ -143,11 +147,15 @@ void Machine::step(){
         this->reg_acc = arg;
         break;
     case OPERATORS::ADD:
+        if(this->reg_acc + arg > 0xFF) this->carry = true;
+        else this->carry = false;
         this->reg_acc += arg;
         if(this->reg_acc == 0) this->zero = true;
         else this->zero = false;
         break;
     case OPERATORS::SUB:
+        if(this->reg_acc < arg) this->carry = true;
+        else this->carry = false;
         this->reg_acc -= arg;
         if(this->reg_acc == 0) this->zero = true;
         else this->zero = false;
@@ -193,6 +201,8 @@ void Machine::step(){
         if(this->zero) this->address += static_cast<signed char>(arg);
         break;
     case OPERATORS::CMP:
+        if(this->reg_acc < arg) this->carry = true;
+        else this->carry = false;
         if(this->reg_acc - arg == 0) this->zero = true;
         else this->zero = false;
         break;
@@ -245,14 +255,24 @@ void Machine::step(){
         this->stop();
         break;
     case OPERATORS::ADD_BAK:
+        if(this->reg_acc + this->reg_bak > 0xFF) this->carry = true;
+        else this->carry = false;
         this->reg_acc += this->reg_bak;
         if(this->reg_acc == 0) this->zero = true;
         else this->zero = false;
         break;
     case OPERATORS::SUB_BAK:
+        if(this->reg_acc < this->reg_bak) this->carry = true;
+        else this->carry = false;
         this->reg_acc -= this->reg_bak;
         if(this->reg_acc == 0) this->zero = true;
         else this->zero = false;
+        break;
+    case OPERATORS::JGZ:
+        if(!this->carry) this->address += static_cast<signed char>(arg);
+        break;
+    case OPERATORS::JLZ:
+        if(this->carry) this->address += static_cast<signed char>(arg);
         break;
     }
     if(this->debug){

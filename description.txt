@@ -42,6 +42,8 @@ EX_HL    EB 00
 RET      C9 00
 ADD_BAK  80 00
 SUB_BAK  90 00
+JGZ      30 arg
+JLZ      38 arg
 
 mapping for intermediate lang:
 
@@ -80,3 +82,5 @@ EX_HL    1F 00
 RET      20 00
 ADD_BAK  21 00
 SUB_BAK  22 00
+JGZ      23 arg
+JLZ      24 arg
