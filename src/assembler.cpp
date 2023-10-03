@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <format>
 #include <cstdint>
+#include <cstring>
 
 using namespace std::literals;
 
@@ -92,12 +93,29 @@ const std::unordered_map<std::string, OPERATORS> OP_CONV{
 };
 
 int main(int argc, char **argv){
+    bool DEBUG_MESSAGES = false;
+    uint16_t HEX_TARGET = 0x8000;
     if(argc < 2){
-        std::cerr << "Usage: " << argv[0] << " <source>\n";
+        std::cerr << "Usage: " << argv[0] << " [flags] <source>\n";
         return 1;
     }
-    const bool DEBUG_MESSAGES = argc > 2;
-    std::string input_filename = argv[1];
+    for(size_t i = 1; i < argc; ++i){
+        if(strcmp(argv[i], "--verbose") == 0 || strcmp(argv[i], "-v") == 0) DEBUG_MESSAGES = true;
+        if(strcmp(argv[i], "--address") == 0 || strcmp(argv[i], "-a") == 0){
+            if(i < argc - 1){
+                HEX_TARGET = static_cast<uint16_t>(std::strtol(argv[++i], nullptr, 0));
+                continue;
+            }else{
+                std::cerr << "Address required\n";
+                return 4;
+            }
+        }
+        if(strcmp(argv[i], "--help") == 0 || strcmp(argv[i], "-h") == 0){
+            std::cerr << "Usage: " << argv[0] << " [flags] <source>\nFlags:\n-h, --help\t\tPrints this message\n-v, --verbose\t\tEnables extra debug information\n-a, --address <addr>\tSets hex origin address\n";
+            return 0;
+        }
+    }
+    std::string input_filename = argv[argc - 1];
     std::ifstream source_file(input_filename /* source file arg */);
     if(!source_file.is_open()){
         source_file.close();
@@ -111,7 +129,7 @@ int main(int argc, char **argv){
     source_file.close();
 
     std::string compiled_output;
-    size_t current_addr = 0;
+    size_t current_addr = 0x80;
     std::unordered_map<std::string, size_t> labels;
     for(auto& line : source_file_lines){
         if(line.size() == 0) continue;
@@ -136,6 +154,8 @@ int main(int argc, char **argv){
             labels[arg] = current_addr;
             std::cout << "Label " << arg << std::format(" = {:04X}", current_addr) << std::endl;
             line.at(0) = ';';
+        }else if(cmd == "ADDR"){
+            current_addr++;
         }else if(cmd == "WORD"){
             size_t temp_sep = arg.find(',');
             unsigned int num_seps = 1;
@@ -163,7 +183,7 @@ int main(int argc, char **argv){
         std::string arg;
         std::for_each(cmd.begin(), cmd.end(), [](char &c){ c = std::toupper(c); });
         if(DEBUG_MESSAGES){
-        std::cout << "command: " << cmd << std::endl;
+            std::cout << "command: " << cmd << std::endl;
         }
         if(pos != std::string::npos){
             arg = line.substr(pos+1);
@@ -173,6 +193,9 @@ int main(int argc, char **argv){
         }
         if(cmd == "ORG"){
             uint16_t new_addr = static_cast<uint16_t>(std::strtol(arg.c_str(), nullptr, 0));
+            if(DEBUG_MESSAGES){
+                std::cout << std::format("Setting address to 0x{:04X} (real addr: 0x{:04X})\n", new_addr, new_addr*2);
+            }
             if(current_addr == -1){
                 current_addr = new_addr;
             } else {
@@ -184,7 +207,7 @@ int main(int argc, char **argv){
             }
             continue;
         }
-        if(current_addr == -1) current_addr = 0;
+        if(current_addr == -1) current_addr = 0x80;
         if(auto cmd_exists = OP_CONV.find(cmd); cmd_exists != OP_CONV.end()){
             unsigned char uint8_arg;
             arg.erase(std::remove_if(arg.begin(), arg.end(), ::isspace), arg.end());
@@ -196,7 +219,7 @@ int main(int argc, char **argv){
                     uint8_arg = arg_exists->second - current_addr;
                     if(abs(static_cast<int>(static_cast<char>(uint8_arg))) > 60) std::cerr << "Warn addr " << current_addr << ": Jump to label \'" << arg_exists->first << "\' distance " << abs(static_cast<int>(static_cast<char>(uint8_arg))) << " > 60\n";
                 }else if(cmd_exists->second == OPERATORS::SET_H){
-                    uint8_arg = static_cast<unsigned char>(((arg_exists->second*2) & 0xFF00) >> 8) + 1;
+                    uint8_arg = static_cast<unsigned char>(((arg_exists->second*2) & 0xFF00) >> 8);
                     if(DEBUG_MESSAGES){
                         std::cout << "Replacing " << arg_exists->first << std::format(" with {:02X}", static_cast<int16_t>(uint8_arg)) << std::endl;
                     }
@@ -244,6 +267,23 @@ int main(int argc, char **argv){
                 compiled_output.push_back(static_cast<unsigned char>(i & 0x00FF));
                 current_addr++;
             }
+        }else if(cmd == "ADDR"){
+            unsigned char byte_1 = 0;
+            unsigned char byte_2 = 0;
+            arg.erase(std::remove_if(arg.begin(), arg.end(), ::isspace), arg.end());
+            if(DEBUG_MESSAGES) std::cout << "Adding ADDR word\n";
+            if(auto arg_exists = labels.find(arg); arg_exists != labels.end()){
+                byte_1 = static_cast<unsigned char>((arg_exists->second*2) & 0x00FF);
+                byte_2 = static_cast<unsigned char>(((arg_exists->second*2) & 0xFF00) >> 8);
+                if(DEBUG_MESSAGES) std::cout << "Replacing " << arg_exists->first << std::format(" with bytes {:02X}, {:02X}\n", byte_1, byte_2);
+            }else{
+                std::cerr << "Error: Unrecognized label \'" << arg << "\' at address " << current_addr << " in ADDR command\n";
+            }
+            compiled_output.push_back(0xFF);
+            compiled_output.push_back(0x02);
+            compiled_output.push_back(byte_1);
+            compiled_output.push_back(byte_2);
+            current_addr++;
         }else if(cmd == "STR"){
             if(DEBUG_MESSAGES){
                 std::cout << "Inserting string bytes\n";
@@ -278,7 +318,7 @@ int main(int argc, char **argv){
     compiled_output.push_back(0xFF);
     compiled_output.push_back(0xFF);
     if(DEBUG_MESSAGES){
-    std::cout << "Compiled bytestring: " << compiled_output << std::endl;
+    //std::cout << "Compiled bytestring:\n" << compiled_output << std::endl;
     }
     
     std::ofstream compiled_file(input_filename.substr(0,input_filename.find('.'))+".o", std::ios::trunc | std::ios::binary);
@@ -294,7 +334,7 @@ int main(int argc, char **argv){
 
     std::string hex_string;
     std::string compiled_substring;
-    uint16_t address = (argc >= 3) ? static_cast<uint16_t>(std::strtol(argv[2], nullptr, 0)) : 0x8000;
+    uint16_t address = HEX_TARGET;
     uint16_t checksum = 0x00;
     while(compiled_output.size() > 0x20){
         compiled_substring = compiled_output.substr(0, 0x20);

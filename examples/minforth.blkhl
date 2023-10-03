@@ -2,11 +2,10 @@
 ; How is this gonna work? No clue.
 ; Status stuff @ 0x0FF0
 ; Strings @ 0x1000
-; System word space 0x2000-0x3FFF
-; User word space 0x4000-0xAFFF
+; Map space 0x2000-0x3FFF
+; Word space 0x4000-0xAFFF
 ; Line space 0xB000-0xB7FF
-; Token parsing space 0xB800-0xBFFF
-; Compiled token space 0xC000-0xCFFF
+; Compiled token space 0xB800-0xCFFF
 
 
 ; Step 0: Zero out memory
@@ -23,11 +22,15 @@ set_a_h
 cmp 0xD0
 jnz step_0_zero_mem
 
+; Step 0.5: Initialize a 0x20 at one byte before line space, for my sanity's sake
+lbl step_1_read_input
+set_h 0xAF
+set_l 0xFF
+set_dref 0x20
 
 ; Step 1: Read user input
 ; Store at 0xB000, break at CR (0x0D) char
 ; Null-terminate
-lbl step_1_read_input
 ; Print READY
 set_h system_ready
 set_l system_ready
@@ -70,224 +73,176 @@ out
 set_dref 0x00 ; Null terminate string by writing to whatever HL was pointing to
 
 
-; Step 2: Parse input into tokens
+; Step 2: Parse input into tokens, and write a 2 byte value describing them
 ; Split by space (0x20)
-; Write temp tokens into 0xB800
-; Replace space with 0x00
 lbl step_2_tokenize_input
 
-; Set main HL to beginning of line space
+; Set main HL to our line space
 set_h 0xB0
 set_l 0x00
-
-lbl step_2_start_new_token ; Set alt HL to point to the beginning of temp token space
-ex_hl
-set_h 0xB8
-set_l 0x00
-ex_hl
-
-; Begin main loop
-lbl step_2_tokenizer_loop
-rcl ; Read a character from line space
-inc 
-cmp 0x20 ; If it's a space we're done with this token
-jez step_2_token_parsed ; Jump to code to jump to token matcher with return set to this loop
-cmp 0x00 ; If it's a null we're done with the line
-jez step_2_line_parsed ; Jump to code to jump to token matcher with return set to step 4
-ex_hl ; Switch to temp space
-sto
-inc ; Store and increment
-ex_hl ; Back to line space
-jrel step_2_tokenizer_loop
-
-lbl step_2_token_parsed ; Jump here on end of token
-ex_hl ; Temp space
-set_dref 0x00 ; Denote end of token
-ex_hl ; Line space
-
-;set_a_l
-;bak ; Set backup register to L
-;set_a_h ; Set main A to H
-
-;set_h system_line_space_backup
-;set_l system_line_space_backup
-;sto ; Store H in system_line_space_backup
-;inc
-;res
-;sto ; Store L in system_line_space_backup + 1 
 push_hl
-set_h step_2_token_parsed_return
-set_l step_2_token_parsed_return
-push_hl
-jrel step_3_match_tokens
 
-lbl step_2_token_parsed_return ; Return addr
+; Set alt HL to word map space
+lbl step_2_success_next_token
+set_acc 0xFF
+bak
 pop_hl
-;set_h system_line_space_backup
-;set_l system_line_space_backup
-;rcl
-;bak
-;inc
-;rcl
-;set_l_a
-;res
-;set_h_a
-jrel step_2_start_new_token
-
-lbl step_2_line_parsed ; Jump here on end of line
-ex_hl ; Temp space
-set_dref 0x00 ; Denote end of token
-ex_hl ; Line space
-set_h step_4_run_comp
-set_l step_4_run_comp
-push_hl
-
-
-; Step 3: Match tokens against system words
-; Compare each character
-; If both the word and token hit 0xFF and match along the way
-; Write the 2-byte index of the word to a byte in compiled space (0xC000)
-; Then goto step 2
-; If token doesn't match, goto step 3.5
-lbl step_3_match_tokens
-
-set_h system_symbol_search_idx ; Zero out search idx
-set_l system_symbol_search_idx
-set_dref 0x0
-inc
-set_dref 0x0
-
-; Set alt HL to point to system words
-set_h system_words
-set_l system_words
-
-ex_hl ; Switch to main HL and set to point to temp space
-lbl step_3_match_tokens_reset_temp_space ; label for when we fail a match
-set_h 0xB8
-set_l 0x00
-
-; Search for next system word (denoted by a ':' 0x3A)
-ex_hl ; word space
-lbl step_3_find_next_word
+ex_hl
+set_h word_map
+set_l word_map
+ex_hl
+; Check if we're actually at the end of line
 rcl
-inc
-cmp 0x3B ; First we're looking for the closing ';' (0x3B)
-jnz step_3_find_next_word
+cmp 0x0
+jez step_1_read_input
+
+lbl step_2_new_token
+; Get back to the beginning of the current token
+res
+cmp 0x0
+jnz 2
+dec
+dec
 rcl
-;out
-cmp 0x3A ; If we found the ';', the next char should be a ':'
-jez 9
-; Check to see if it's a number
-; Old: Throw an error
-set_h system_compiler_mode
-set_l system_compiler_mode
-rcl
-cmp 0x1
-nul ; will be a jnz
-set_h step_3.5_conv_number;system_invalid_symbol
-set_l step_3.5_conv_number;system_invalid_symbol
-;rcl
-;inc
-;cmp 0x00
-;jez 3
-;out
-;jrel -5
-;set_acc 0x0D
-;out
-;sub 3
-;out
-;pop_hl
-jmp
-inc ; increment to skip the space after the ':'
-inc
-ex_hl ; temp space
-; Begin main loop
-lbl step_3_match_tokens_loop
-ex_hl ; word space
-rcl
-inc
-;out
-bak ; Read char from word space into bak
-ex_hl ; temp space
-rcl ; Read char from temp space into acc
-;out
+out
+cmp 0x20
+jez 2
+jrel -5
 inc
 
-; Compare them
-push_a ; backup temp space to be safe
-sub_bak
-;out
-cmp 0x00 ; If we're 0x00 we matched
-jez step_3_matched
-; otherwise do things
-pop_a
-;cmp 0x00 ; check if temp char is null
-;jez 4
-;res ; check if word char is null
-;cmp 0x00
-;jnz step_3_match_tokens_loop
-
-set_h system_symbol_search_idx ; Increment the search index
-set_l system_symbol_search_idx
-rcl
-add 1
-sto
-cmp 0x00
-jnz 5 
-inc
-rcl
-add 1
-sto
-jrel step_3_match_tokens_reset_temp_space ; Otherwise, next token
-
-lbl step_3_matched
-pop_a ; check if temp char is null
-cmp 0x00
-jnz step_3_match_tokens_loop
-set_h system_ok
-set_l system_ok
+; Read word map to next string
+ex_hl
 rcl
 inc
-cmp 0x00
+cmp 0x3B
+jez 2
+jrel -4
+; We found our delimiter, now we need the type
+rcl
+inc
+cmp 0xFF ; If we're at the end of the words then parse as int
+jnz step_2_found_word_in_map ; for now just error
+set_h system_invalid_symbol
+set_l system_invalid_symbol
+rcl
+inc
+cmp 0x0
 jez 3
 out
 jrel -5
+
+ex_hl ; print the token that failed
+rcl
+inc
+cmp 0x20
+jez 5
+cmp 0x0
+jez 3
+out
+jrel -7
+ex_hl
+
 set_acc 0x0D
 out
 sub 3
 out
+set_h step_1_read_input ; jump back to read loop
+set_l step_1_read_input
+jmp 
+lbl step_2_new_token_intermediate
+jrel step_2_new_token
+; otherwise
+lbl step_2_found_word_in_map
+push_hl
+set_h system_compiler_mode
+set_l system_compiler_mode
+sto
+; Now we've stored our symbol type, time to match
+pop_hl
+ex_hl
+
+; Try to match
+lbl step_2_tokenizer_loop
+
+rcl ; Read character from line
+inc
+cmp 0x20 ; If it's a space we'll make it not a space
+jnz 2 ; So the next check is easier
+sub 0x20
+
+bak ; back this character up
+ex_hl
+rcl ; read the next word character
+inc
+ex_hl
+
+sub_bak ; compare the 2
+jnz step_2_new_token_intermediate ; if we failed a match, retry
+
+; If we matched, we should be on a null
+res
+cmp 0x00
+jnz step_2_tokenizer_loop ; If we aren't, keep going
+
+; Congrats, we matched one. Now we read the address from the word map, and push it to the compiled space
+; Depending on type, we'd do some different stuff, but it's all type 0 for now
+push_hl ; Back our line index up temporarily
 set_h system_compiled_space_ptr
 set_l system_compiled_space_ptr
+
 rcl
-bak
-add 2
-sto
+bak ; low byte
 inc
-cmp 0x00
-jnz 5 
-rcl
-add 1
-sto
-sub 1
-rcl
+rcl ; high byte
+
+; Alright, we have our pointer
 set_h_a
 res
 set_l_a
+
+; Write a delimiter of type 1
+set_dref 0x3B
+inc
+set_dref 0x01
+inc
+
+; Now seek to the address data in the word map
 ex_hl
-set_a_h
+rcl
+inc
+cmp 0xFF ; we're looking for this delimiter
+jnz -3
+
+rcl ; low byte
+push_a ; we need this in a sec
+inc
+rcl ; high byte
 bak
-set_a_l
 ex_hl
+
+; Store it
+pop_a
+; see what i meant?
 sto
 inc
 res
 sto
-ex_hl
-pop_hl
+inc
+; Aight, that's stored, now store into the pointer and repeat
+set_a_h
+bak
+set_a_l
+set_h system_compiled_space_ptr
+set_l system_compiled_space_ptr
+sto
+inc
+res
+sto
+set_h step_2_success_next_token
+set_l step_2_success_next_token
 jmp
 
-
-; Step 3.25: 
+; Step 3: 
 
 
 ; Step 3.5: Convert token to number
@@ -495,6 +450,7 @@ lbl system_compiled_space_ptr ; little-endian
 word 0x00C0
 lbl system_run_ptr_bak
 word 0x0000
+
 ; system strings
 ; this gets doubled, starts at 0x1000
 org 0x800
@@ -514,13 +470,72 @@ str ?TOKEN
 lbl system_crit_error
 str ?CRIT
 
-; system words
+; word map space
 ; starts at 0x2000
-; 0x003B = delimiter
+; format: delimiter, string, 0x00FF, address
+; 0x3B00 = denotes new word
+; ; = separator
+; types:
+; 0x00 = assembly instruction
+; 0x01 = address to word map
+; 0xFF = end of word list
 org 0x1000
-lbl system_words
-word 0x003B
-str : +
+lbl word_map
+
+word 0x3B00
+str +
+word 0x00FF
+addr operator+
+
+word 0x3B00
+str putc
+word 0x00FF
+addr operator_putc
+
+word 0x3B00
+str getch
+word 0x00FF
+addr operator_getc
+
+word 0x3B00
+str getc
+word 0x00FF
+addr operator_getc
+
+word 0x3B00
+str -
+word 0x00FF
+addr operator-
+
+word 0x3BFF
+; word 0x3B00
+; str dup
+; pop_a
+; push_a
+; push_a
+; ex_hl
+; jmp
+; word 0x3B00
+; str : 1+
+; pop_a
+; add 1
+; push_a
+; ex_hl
+; jmp
+; word 0x3B00
+; str : 1-
+; pop_a
+; sub 1
+; push_a
+; ex_hl
+; jmp
+
+; Word data space
+; Contains raw code for each word, no delimiter
+org 0x2000
+lbl word_data
+
+lbl operator+
 pop_a
 bak
 pop_a
@@ -528,20 +543,8 @@ add_bak
 push_a
 ex_hl
 jmp
-word 0x003B
-str : putc
-pop_a
-out
-ex_hl
-jmp
-word 0x003B
-str : getc
-in
-push_a
-ex_hl
-jmp
-word 0x003B
-str : -
+
+lbl operator-
 pop_a
 bak
 pop_a
@@ -549,26 +552,17 @@ sub_bak
 push_a
 ex_hl
 jmp
-word 0x003B
-str : dup
+
+lbl operator_putc
 pop_a
-push_a
+out
+ex_hl
+jmp
+
+lbl operator_getc
+in
 push_a
 ex_hl
 jmp
-word 0x003B
-str : 1+
-pop_a
-add 1
-push_a
-ex_hl
-jmp
-word 0x003B
-str : 1-
-pop_a
-sub 1
-push_a
-ex_hl
-jmp
-word 0x003B
-lbl user_words
+
+lbl end_system_words
