@@ -176,14 +176,14 @@ jnz step_3_find_next_word
 rcl
 ;out
 cmp 0x3A ; If we found the ';', the next char should be a ':'
-jez 5
-set_h 0x40 ; Otherwise, check user space
-set_l 0x00
-rcl
-cmp 0x3A
-jez 4;15
+jez 9
 ; Check to see if it's a number
 ; Old: Throw an error
+set_h system_compiler_mode
+set_l system_compiler_mode
+rcl
+cmp 0x1
+nul ; will be a jnz
 set_h step_3.5_conv_number;system_invalid_symbol
 set_l step_3.5_conv_number;system_invalid_symbol
 ;rcl
@@ -285,6 +285,10 @@ sto
 ex_hl
 pop_hl
 jmp
+
+
+; Step 3.25: 
+
 
 ; Step 3.5: Convert token to number
 ; Convert each digit by subtracting 0x30
@@ -567,4 +571,4 @@ push_a
 ex_hl
 jmp
 word 0x003B
-lbl end_system_words
+lbl user_words
